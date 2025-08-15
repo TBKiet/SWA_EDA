@@ -90,13 +90,13 @@ tbkiet/gateway:abc1234...
 - Expired or invalid token
 - Token doesn't have write permissions
 
-**Solution**: 
+**Solution**:
 1. Regenerate DockerHub access token with **Read, Write, Delete** permissions
 2. Update `DOCKERHUB_TOKEN` secret in GitHub
 
 ### Issue: "Repository does not exist"
 **Cause**: DockerHub repository not created automatically
-**Solution**: 
+**Solution**:
 1. Go to DockerHub
 2. Create repositories manually: `user-service`, `event-service`, etc.
 3. Or enable auto-create in DockerHub settings

@@ -44,7 +44,7 @@ get_input() {
     local prompt="$1"
     local var_name="$2"
     local is_secret="$3"
-    
+
     echo -e "${CYAN}${prompt}${NC}"
     if [ "$is_secret" = "true" ]; then
         read -s input
@@ -52,7 +52,7 @@ get_input() {
     else
         read input
     fi
-    
+
     if [ -z "$input" ]; then
         echo -e "${RED}❌ Input cannot be empty. Please try again.${NC}"
         get_input "$prompt" "$var_name" "$is_secret"
@@ -65,13 +65,13 @@ get_input() {
 create_secrets() {
     local username="$1"
     local token="$2"
-    
+
     echo -e "${BLUE}🔐 Creating GitHub repository secrets...${NC}"
-    
+
     # Create DOCKERHUB_USERNAME secret
     echo "$username" | gh secret set DOCKERHUB_USERNAME
     echo -e "${GREEN}✅ DOCKERHUB_USERNAME secret created${NC}"
-    
+
     # Create DOCKERHUB_TOKEN secret
     echo "$token" | gh secret set DOCKERHUB_TOKEN
     echo -e "${GREEN}✅ DOCKERHUB_TOKEN secret created${NC}"
@@ -81,9 +81,9 @@ create_secrets() {
 test_dockerhub_login() {
     local username="$1"
     local token="$2"
-    
+
     echo -e "${BLUE}🧪 Testing DockerHub login...${NC}"
-    
+
     if echo "$token" | docker login --username "$username" --password-stdin >/dev/null 2>&1; then
         echo -e "${GREEN}✅ DockerHub login successful${NC}"
         docker logout >/dev/null 2>&1
@@ -129,12 +129,12 @@ show_next_steps() {
 main() {
     echo -e "${BLUE}This script will help you set up DockerHub integration for your CI/CD pipeline.${NC}"
     echo ""
-    
+
     # Check prerequisites
     echo -e "${BLUE}🔍 Checking prerequisites...${NC}"
     check_gh_cli
     echo -e "${GREEN}✅ GitHub CLI is ready${NC}"
-    
+
     # Check if Docker is running
     if ! docker info >/dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  Docker is not running. Please start Docker Desktop.${NC}"
@@ -143,7 +143,7 @@ main() {
     fi
     echo -e "${GREEN}✅ Docker is running${NC}"
     echo ""
-    
+
     # Get DockerHub credentials
     echo -e "${BLUE}📝 DockerHub Credentials Setup${NC}"
     echo "You'll need:"
@@ -158,22 +158,22 @@ main() {
     echo "5. Permissions: Read, Write, Delete"
     echo "6. Copy the generated token"
     echo ""
-    
+
     get_input "🔤 Enter your DockerHub username:" "dockerhub_username" "false"
     get_input "🔑 Enter your DockerHub access token:" "dockerhub_token" "true"
-    
+
     # Test credentials
     if ! test_dockerhub_login "$dockerhub_username" "$dockerhub_token"; then
         echo -e "${RED}❌ Setup failed. Please check your credentials and try again.${NC}"
         exit 1
     fi
-    
+
     # Create GitHub secrets
     if ! create_secrets "$dockerhub_username" "$dockerhub_token"; then
         echo -e "${RED}❌ Failed to create GitHub secrets. Please check your GitHub CLI authentication.${NC}"
         exit 1
     fi
-    
+
     # Show next steps
     show_next_steps
 }
