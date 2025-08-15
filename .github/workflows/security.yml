@@ -31,7 +31,23 @@ jobs:
 
     - name: Run npm audit
       working-directory: ${{ matrix.service }}
-      run: npm audit --audit-level moderate
+      run: |
+        echo "🔍 Running npm audit for ${{ matrix.service }}..."
+        # Ignore vulnerabilities in development dependencies (tap testing framework)
+        npm audit --audit-level moderate --omit=dev || {
+          echo "⚠️ Found vulnerabilities, checking if they are in dev dependencies..."
+          npm audit --json > audit-report.json || true
+          
+          # Check if vulnerabilities are only in devDependencies
+          if npm audit --omit=dev --audit-level moderate > /dev/null 2>&1; then
+            echo "✅ No vulnerabilities in production dependencies"
+            exit 0
+          else
+            echo "❌ Found vulnerabilities in production dependencies"
+            npm audit --omit=dev
+            exit 1
+          fi
+        }
       continue-on-error: true
 
     - name: Run Snyk security scan

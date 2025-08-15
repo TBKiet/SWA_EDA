@@ -51,16 +51,45 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
+    - name: Check package-lock.json exists
+      id: check-lockfile
+      working-directory: ${{ matrix.service }}
+      run: |
+        if [ -f "package-lock.json" ]; then
+          echo "lockfile_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ package-lock.json found for ${{ matrix.service }}"
+        else
+          echo "lockfile_exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ package-lock.json not found for ${{ matrix.service }}, will use npm install"
+        fi
+
+    - name: Setup Node.js (with cache)
+      if: steps.check-lockfile.outputs.lockfile_exists == 'true'
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: '${{ matrix.service }}/package-lock.json'
 
-    - name: Install dependencies
+    - name: Setup Node.js (without cache)
+      if: steps.check-lockfile.outputs.lockfile_exists == 'false'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies (with package-lock)
+      if: steps.check-lockfile.outputs.lockfile_exists == 'true'
       working-directory: ${{ matrix.service }}
-      run: npm ci
+      run: |
+        echo "📦 Installing dependencies for ${{ matrix.service }} using npm ci..."
+        npm ci --ignore-scripts --no-audit --no-fund
+
+    - name: Install dependencies (without package-lock)
+      if: steps.check-lockfile.outputs.lockfile_exists == 'false'
+      working-directory: ${{ matrix.service }}
+      run: |
+        echo "📦 Installing dependencies for ${{ matrix.service }} using npm install..."
+        npm install --ignore-scripts --no-audit --no-fund
 
     - name: Wait for services
       run: |
