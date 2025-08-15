@@ -1,0 +1,138 @@
+name: Security & Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1'  # Run weekly on Monday at 2 AM
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        service: [user-service, event-service, registration-service, notification-service, auditlog-service, gateway, frontend]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      working-directory: ${{ matrix.service }}
+      run: npm ci --ignore-scripts
+      
+    - name: Run npm audit
+      working-directory: ${{ matrix.service }}
+      run: npm audit --audit-level moderate
+      continue-on-error: true
+      
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high --file=${{ matrix.service }}/package.json
+      continue-on-error: true
+      
+  docker-security:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        service: [user-service, event-service, registration-service, notification-service, auditlog-service, gateway]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Build Docker image
+      working-directory: ${{ matrix.service }}
+      run: |
+        if [ -f Dockerfile ]; then
+          docker build -t ${{ matrix.service }}:scan .
+        fi
+        
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ matrix.service }}:scan'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+      continue-on-error: true
+      
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+      continue-on-error: true
+      
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install global tools
+      run: |
+        npm install -g eslint prettier jshint
+        
+    - name: Run ESLint on all services
+      run: |
+        for service in user-service event-service registration-service notification-service auditlog-service gateway; do
+          echo "🔍 Linting $service..."
+          if [ -d "$service/src" ]; then
+            eslint "$service/src" --ext .js --format json --output-file "$service-eslint.json" || true
+          fi
+        done
+        
+    - name: Run Prettier check
+      run: |
+        for service in user-service event-service registration-service notification-service auditlog-service gateway frontend; do
+          if [ -d "$service" ]; then
+            echo "🎨 Checking code formatting for $service..."
+            npx prettier --check "$service/**/*.{js,ts,tsx,json,css,md}" || true
+          fi
+        done
+        
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check for outdated dependencies
+      run: |
+        for service in user-service event-service registration-service notification-service auditlog-service gateway frontend; do
+          if [ -f "$service/package.json" ]; then
+            echo "📦 Checking dependencies for $service..."
+            cd "$service"
+            npm outdated || true
+            cd ..
+          fi
+        done
+        
+    - name: License compliance check
+      run: |
+        for service in user-service event-service registration-service notification-service auditlog-service gateway frontend; do
+          if [ -f "$service/package.json" ]; then
+            echo "📄 Checking licenses for $service..."
+            cd "$service"
+            npx license-checker --summary || true
+            cd ..
+          fi
+        done

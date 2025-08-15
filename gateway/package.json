@@ -1,0 +1,18 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "tap tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^8.5.0",
+    "dotenv": "^16.0.0",
+    "fastify": "^4.0.0",
+    "kafkajs": "^2.0.0",
+    "pino": "^8.0.0"
+  },
+  "devDependencies": {
+    "tap": "^16.0.0"
+  }
+}

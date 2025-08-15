@@ -1,0 +1,219 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: ./gateway
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3007:3000"
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  user-service:
+    build: ./user-service
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:admin@postgres:5432/userdb
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    entrypoint: ["sh", "-c", "./shared/wait-for-postgres.sh && ./shared/wait-for-kafka.sh && node src/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  event-service:
+    build: ./event-service
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:admin@postgres:5432/eventdb
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    entrypoint: ["sh", "-c", "./shared/wait-for-postgres.sh && ./shared/wait-for-kafka.sh && node src/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  registration-service:
+    build: ./registration-service
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:admin@postgres:5432/registrationdb
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    entrypoint: ["sh", "-c", "./shared/wait-for-postgres.sh && ./shared/wait-for-kafka.sh && node src/index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  notification-service:
+    build: ./notification-service
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_USER=phatk222@gmail.com
+      - SMTP_PASS=arjw vjgp qehz zohf
+      - DEFAULT_NOTIFICATION_EMAIL=truongkiet771@gmail.com
+      - AUDIT_SERVICE_URL=http://auditlog-service:3006
+    entrypoint: ["sh", "-c", "./shared/wait-for-kafka.sh && node src/index.js"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  auditlog-service:
+    build: ./auditlog-service
+    volumes:
+      - ./shared:/app/shared
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URL=mongodb://mongo:27017/auditdb
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    entrypoint: ["sh", "-c", "./shared/wait-for-mongo.sh && ./shared/wait-for-kafka.sh && node src/index.js"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - eventflow-network
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./shared/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./shared/seed-event.sql:/docker-entrypoint-initdb.d/seed-event.sql
+    networks:
+      - eventflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - eventflow-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - eventflow-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - eventflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - eventflow-network
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./shared/init-kafka-topics.sh:/init-kafka.sh
+    entrypoint: ["bash", "/init-kafka.sh"]
+    networks:
+      - eventflow-network
+
+volumes:
+  postgres-data:
+  mongo-data:
+
+networks:
+  eventflow-network:
+    driver: bridge

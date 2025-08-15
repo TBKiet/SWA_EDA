@@ -1,0 +1,75 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        service: [user-service, event-service, registration-service, notification-service, auditlog-service, gateway, frontend]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        
+    - name: Build and push Docker image
+      working-directory: ${{ matrix.service }}
+      run: |
+        if [ -f Dockerfile ]; then
+          # Extract service name and build
+          SERVICE_NAME=${{ matrix.service }}
+          IMAGE_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${SERVICE_NAME}:${{ github.sha }}"
+          LATEST_TAG="${{ secrets.DOCKERHUB_USERNAME }}/${SERVICE_NAME}:latest"
+          
+          docker build -t ${IMAGE_TAG} -t ${LATEST_TAG} .
+          docker push ${IMAGE_TAG}
+          docker push ${LATEST_TAG}
+          
+          echo "Pushed ${IMAGE_TAG} and ${LATEST_TAG}"
+        else
+          echo "No Dockerfile found for ${{ matrix.service }}"
+        fi
+        
+  deploy-staging:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    steps:
+    - name: Deploy to Staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        echo "Services: user-service, event-service, registration-service, notification-service, auditlog-service, gateway, frontend"
+        echo "You can implement actual deployment commands here:"
+        echo "  - kubectl apply -f k8s/"
+        echo "  - docker-compose -f docker-compose.staging.yml up -d"
+        echo "  - or deploy to cloud platforms like AWS ECS, Azure Container Instances, etc."
+        
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to Production
+      run: |
+        echo "🎯 Deploying to production environment..."
+        echo "This step requires manual approval in GitHub Environments"
+        echo "Services will be deployed with zero-downtime strategy"
+      
