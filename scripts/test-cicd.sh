@@ -25,21 +25,21 @@ echo
 check_service() {
     local service=$1
     echo -e "${YELLOW}🔍 Checking $service...${NC}"
-    
+
     if [ ! -d "$service" ]; then
         echo -e "${RED}❌ Service directory $service not found${NC}"
         return 1
     fi
-    
+
     if [ ! -f "$service/package.json" ]; then
         echo -e "${RED}❌ package.json not found in $service${NC}"
         return 1
     fi
-    
+
     if [ ! -f "$service/Dockerfile" ]; then
         echo -e "${YELLOW}⚠️  Dockerfile not found in $service${NC}"
     fi
-    
+
     echo -e "${GREEN}✅ $service structure is valid${NC}"
     return 0
 }
@@ -48,19 +48,19 @@ check_service() {
 test_service() {
     local service=$1
     echo -e "${BLUE}🧪 Testing $service...${NC}"
-    
+
     cd "$service"
-    
+
     # Install dependencies
     echo "📦 Installing dependencies..."
     npm ci --silent
-    
+
     # Run linting if available
     if npm run lint --silent >/dev/null 2>&1; then
         echo "🔍 Running linting..."
         npm run lint
     fi
-    
+
     # Run tests
     if [ -f "package.json" ] && grep -q '"test"' package.json; then
         echo "🎯 Running tests..."
@@ -68,7 +68,7 @@ test_service() {
     else
         echo -e "${YELLOW}⚠️  No tests defined for $service${NC}"
     fi
-    
+
     cd ..
     echo -e "${GREEN}✅ $service tests completed${NC}"
     echo
@@ -78,7 +78,7 @@ test_service() {
 build_docker() {
     local service=$1
     echo -e "${BLUE}🐳 Building Docker image for $service...${NC}"
-    
+
     if [ -f "$service/Dockerfile" ]; then
         cd "$service"
         docker build -t "$service:test" . --quiet
@@ -93,21 +93,21 @@ build_docker() {
 # Function to start infrastructure
 start_infrastructure() {
     echo -e "${BLUE}🏗️  Starting infrastructure services...${NC}"
-    
+
     # Check if docker-compose.yml exists
     if [ -f "docker-compose.yml" ]; then
         echo "📦 Starting PostgreSQL and Kafka..."
         docker-compose up -d postgres kafka zookeeper
-        
+
         echo "⏳ Waiting for services to be ready..."
         sleep 30
-        
+
         # Check if PostgreSQL is ready
         until docker-compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
             echo "Waiting for PostgreSQL..."
             sleep 2
         done
-        
+
         echo -e "${GREEN}✅ Infrastructure services are ready${NC}"
     else
         echo -e "${YELLOW}⚠️  docker-compose.yml not found${NC}"
@@ -127,19 +127,19 @@ stop_infrastructure() {
 # Function to run security checks
 security_checks() {
     echo -e "${BLUE}🔒 Running security checks...${NC}"
-    
+
     for service in "${SERVICES[@]}"; do
         if [ -d "$service" ]; then
             echo "🔍 Security scan for $service..."
             cd "$service"
-            
+
             # Run npm audit
             npm audit --audit-level moderate || echo "Security issues found in $service"
-            
+
             cd ..
         fi
     done
-    
+
     echo -e "${GREEN}✅ Security checks completed${NC}"
     echo
 }
@@ -150,30 +150,30 @@ main() {
     for service in "${SERVICES[@]}"; do
         check_service "$service" || exit 1
     done
-    
+
     echo -e "${BLUE}2. Starting infrastructure...${NC}"
     start_infrastructure
-    
+
     echo -e "${BLUE}3. Running tests for all services...${NC}"
     for service in "${SERVICES[@]}"; do
         if [ -d "$service" ]; then
             test_service "$service"
         fi
     done
-    
+
     echo -e "${BLUE}4. Building Docker images...${NC}"
     for service in "${SERVICES[@]}"; do
         if [ -d "$service" ]; then
             build_docker "$service"
         fi
     done
-    
+
     echo -e "${BLUE}5. Running security checks...${NC}"
     security_checks
-    
+
     echo -e "${BLUE}6. Cleaning up...${NC}"
     stop_infrastructure
-    
+
     echo -e "${GREEN}🎉 Local CI/CD pipeline test completed successfully!${NC}"
     echo
     echo -e "${BLUE}📊 Summary:${NC}"

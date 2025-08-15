@@ -20,11 +20,13 @@ Dự án sử dụng GitHub Actions với 3 workflows chính:
 
 ### 📦 CD Pipeline (`cd.yml`)
 - **Trigger**: Push to main branch, manual workflow dispatch
-- **Build & Push**: Docker images to DockerHub with SHA tags
-- **Environments**: 
+- **Build & Push**: Docker images to DockerHub with SHA tags (requires setup)
+- **Environments**:
   - 🧪 **Staging**: Automatic deployment
   - 🎯 **Production**: Manual approval required
 - **Zero-downtime**: Deployment strategy with health checks
+
+> ⚠️ **DockerHub Setup Required**: CD pipeline needs DockerHub credentials to push images. See [DockerHub Setup Guide](./docs/DOCKERHUB_SETUP.md) for 5-minute setup instructions.
 
 ### 🔒 Security & Quality (`security.yml`)
 - **Vulnerability Scanning**: npm audit, Snyk, Trivy
@@ -92,8 +94,8 @@ Nếu bạn chạy frontend độc lập để phát triển UI:
 
 ```bash
 cd frontend
-npm install --legacy-peer-deps      
-npm run dev        
+npm install --legacy-peer-deps
+npm run dev
 ```
 
 > Frontend sẽ chạy tại: [http://localhost:3000](http://localhost:3000)

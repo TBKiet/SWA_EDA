@@ -6,7 +6,7 @@ tap.test('POST /users should create user', async (t) => {
   const response = await fastify.inject({
     method: 'POST',
     url: '/users',
-    payload: { 
+    payload: {
       username: 'testuser' + Date.now(),
       email: 'test' + Date.now() + '@example.com',
       password: 'testpassword',

@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:13
@@ -24,7 +24,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-          
+
       kafka:
         image: confluentinc/cp-kafka:latest
         env:
@@ -34,7 +34,7 @@ jobs:
           KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
         ports:
           - 9092:9092
-          
+
       zookeeper:
         image: confluentinc/cp-zookeeper:latest
         env:
@@ -46,27 +46,27 @@ jobs:
     strategy:
       matrix:
         service: [user-service, event-service, registration-service, notification-service, auditlog-service, gateway]
-        
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: '${{ matrix.service }}/package-lock.json'
-        
+
     - name: Install dependencies
       working-directory: ${{ matrix.service }}
       run: npm ci
-      
+
     - name: Wait for services
       run: |
         timeout 60 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
         sleep 10  # Wait for Kafka to be ready
-        
+
     - name: Run tests
       working-directory: ${{ matrix.service }}
       env:
@@ -74,25 +74,25 @@ jobs:
         DATABASE_URL: postgres://postgres:admin@localhost:5432/userdb
         KAFKA_BROKERS: localhost:9092
       run: npm test
-      
+
     - name: Run linting
       working-directory: ${{ matrix.service }}
       run: npm run lint --if-present
-      
+
   build:
     needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
         service: [user-service, event-service, registration-service, notification-service, auditlog-service, gateway, frontend]
-        
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Build Docker image
       working-directory: ${{ matrix.service }}
       run: |
@@ -101,4 +101,3 @@ jobs:
         else
           echo "No Dockerfile found for ${{ matrix.service }}"
         fi
-    
