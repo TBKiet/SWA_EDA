@@ -1,69 +1,160 @@
-name: Simple CD
+name: Simple CD Pipeline
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
-  # Job 1: Simulate deployment preparation
   prepare-deploy:
     runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.get-services.outputs.services }}
+      should-deploy: ${{ steps.check-secrets.outputs.should-deploy }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Prepare deployment
-      run: |
-        echo "🚀 Preparing deployment..."
-        echo "📋 Services to deploy:"
-        echo "  - user-service"
-        echo "  - gateway"
-        echo "✅ Preparation complete!"
+      - uses: actions/checkout@v4
 
-  # Job 2: Build and "deploy" to staging
-  deploy-staging:
+      - name: Get Services to Deploy
+        id: get-services
+        run: |
+          services='["user-service", "gateway"]'
+          echo "services=$services" >> $GITHUB_OUTPUT
+          echo "🚀 Services to deploy: $services"
+
+      - name: Check DockerHub Secrets
+        id: check-secrets
+        run: |
+          if [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" && -n "${{ secrets.DOCKERHUB_TOKEN }}" ]]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "✅ DockerHub credentials found"
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "⚠️ DockerHub credentials missing - will skip push"
+          fi
+
+  build-and-push:
     runs-on: ubuntu-latest
     needs: prepare-deploy
-    
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.prepare-deploy.outputs.services) }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Simulate build
-      run: |
-        echo "🐳 Building Docker images..."
-        echo "  - Building user-service..."
-        echo "  - Building gateway..."
-        echo "✅ All images built successfully!"
-        
-    - name: Deploy to staging
-      run: |
-        echo "🧪 Deploying to STAGING environment..."
-        echo "  📍 Environment: staging"
-        echo "  🌐 URL: https://staging.your-app.com"
-        echo "  📊 Status: Deployed"
-        echo "✅ Staging deployment complete!"
+      - uses: actions/checkout@v4
 
-  # Job 3: Manual approval simulation for production
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        if: needs.prepare-deploy.outputs.should-deploy == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          push: ${{ needs.prepare-deploy.outputs.should-deploy == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+
+      - name: Image Summary
+        run: |
+          echo "🐳 **Docker Image Built**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tags**: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.prepare-deploy.outputs.should-deploy }}" == "true" ]]; then
+            echo "- **Status**: ✅ Pushed to DockerHub" >> $GITHUB_STEP_SUMMARY
+            echo "- **Registry**: https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ⚠️ Built locally (DockerHub credentials not configured)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [prepare-deploy, build-and-push]
+    environment: staging
+    steps:
+      - name: Deploy to Staging
+        run: |
+          echo "🧪 Deploying to Staging Environment..."
+          echo "Services: ${{ needs.prepare-deploy.outputs.services }}"
+
+          if [[ "${{ needs.prepare-deploy.outputs.should-deploy }}" == "true" ]]; then
+            echo "✅ Using DockerHub images for deployment"
+            echo "📦 Pulling images from: ${{ secrets.DOCKERHUB_USERNAME }}/[service]:latest"
+          else
+            echo "⚠️ Using local images for deployment"
+          fi
+
+          echo "🌐 Staging URL: https://staging.your-app.com"
+          echo "✅ Staging deployment completed!"
+
   deploy-production:
     runs-on: ubuntu-latest
-    needs: deploy-staging
-    environment: production  # This requires manual approval
-    
+    needs: [prepare-deploy, build-and-push, deploy-staging]
+    environment: production
     steps:
-    - name: Deploy to production
-      run: |
-        echo "🎯 Deploying to PRODUCTION environment..."
-        echo "  📍 Environment: production"
-        echo "  🌐 URL: https://your-app.com"
-        echo "  📊 Status: Deployed"
-        echo "✅ Production deployment complete!"
-        
-    - name: Post-deployment checks
-      run: |
-        echo "🔍 Running post-deployment checks..."
-        echo "  ✅ Health check: OK"
-        echo "  ✅ Database: Connected"
-        echo "  ✅ Services: Running"
-        echo "🎉 Deployment successful!"
+      - name: Deploy to Production
+        run: |
+          echo "🎯 Deploying to Production Environment..."
+          echo "Services: ${{ needs.prepare-deploy.outputs.services }}"
+
+          if [[ "${{ needs.prepare-deploy.outputs.should-deploy }}" == "true" ]]; then
+            echo "✅ Using DockerHub images for production deployment"
+            echo "📦 Pulling images from: ${{ secrets.DOCKERHUB_USERNAME }}/[service]:latest"
+
+            # Simulate production deployment commands
+            echo "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/user-service:latest"
+            echo "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gateway:latest"
+            echo "docker-compose -f docker-compose.prod.yml up -d"
+          else
+            echo "⚠️ Production deployment requires DockerHub setup"
+            echo "📝 Please configure DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets"
+            exit 1
+          fi
+
+          echo "🌐 Production URL: https://your-app.com"
+          echo "🎉 Production deployment completed!"
+
+  deployment-summary:
+    runs-on: ubuntu-latest
+    needs: [prepare-deploy, build-and-push, deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "# 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Services Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare-deploy.outputs.services }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.prepare-deploy.outputs.should-deploy }}" == "true" ]]; then
+            echo "## ✅ DockerHub Integration" >> $GITHUB_STEP_SUMMARY
+            echo "- Images pushed to DockerHub successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- Registry: https://hub.docker.com/u/${{ secrets.DOCKERHUB_USERNAME }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ⚠️ DockerHub Setup Required" >> $GITHUB_STEP_SUMMARY
+            echo "- Images built locally only" >> $GITHUB_STEP_SUMMARY
+            echo "- [Setup Guide](./docs/DOCKERHUB_SETUP.md)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Environments" >> $GITHUB_STEP_SUMMARY
+          echo "- 🧪 **Staging**: Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- 🎯 **Production**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

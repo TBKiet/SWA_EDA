@@ -10,16 +10,16 @@ jobs:
   # Basic security check
   security-scan:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        
+
     - name: Check user-service security
       working-directory: user-service
       run: |
@@ -28,7 +28,7 @@ jobs:
         echo "🛡️ Running basic security audit..."
         npm audit --audit-level high || echo "⚠️ Found some issues, but continuing..."
         echo "✅ Security check completed for user-service"
-        
+
     - name: Check for sensitive files
       run: |
         echo "🔍 Checking for sensitive files..."
@@ -37,13 +37,13 @@ jobs:
         else
           echo "✅ No .env files found in git"
         fi
-        
+
         if find . -name "*.key" -not -path "./node_modules/*" | grep -q .; then
           echo "⚠️ Found .key files - make sure they're secure"
         else
           echo "✅ No .key files found"
         fi
-        
+
     - name: Security summary
       run: |
         echo "📊 Security Scan Summary:"

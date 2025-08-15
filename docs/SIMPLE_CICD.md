@@ -7,7 +7,7 @@
 
 **3 Jobs chạy song song:**
 
-1. **📁 Code Check** 
+1. **📁 Code Check**
    - Kiểm tra cấu trúc project
    - Đảm bảo code được checkout đúng
 
@@ -72,7 +72,7 @@ Click vào từng job → từng step để xem logs
 ✅ build-check: Build simulation OK
 ```
 
-### ✅ CD Success  
+### ✅ CD Success
 ```
 ✅ prepare-deploy: Preparation complete
 ✅ deploy-staging: Deployed to staging
@@ -121,7 +121,7 @@ Code Push → CI (Test & Build) → CD (Deploy) → Production
 
 1. **CI đảm bảo code quality** trước khi deploy
 2. **CD tự động deploy** code đã test
-3. **Staging environment** để test trước production  
+3. **Staging environment** để test trước production
 4. **Manual approval** cho production deploy
 5. **Security scans** để đảm bảo an toàn
 
@@ -142,7 +142,7 @@ Code Push → CI (Test & Build) → CD (Deploy) → Production
 ## 📝 Next Steps
 
 1. ✅ Observe workflows running
-2. ✅ Test manual CD trigger  
+2. ✅ Test manual CD trigger
 3. ✅ Setup production environment
 4. ✅ Try making code changes
 5. ✅ Watch the full CI/CD cycle
