@@ -1,0 +1,254 @@
+@startuml EDA-Demo Deployment View
+!theme plain
+title Event-Driven Architecture Demo - Deployment View
+
+node "Development Host" {
+  
+  node "Docker Engine" {
+    
+    node "Frontend Container" {
+      [Next.js Frontend] as FE
+      note right of FE
+        **Port**: 3000 (internal)
+        **Framework**: Next.js
+        **Build**: npm run dev
+        **Volume**: ./frontend
+      end note
+    }
+    
+    node "API Gateway Container" {
+      [Fastify Gateway] as GW
+      note right of GW
+        **Port**: 3000 (internal) → 3007 (host)
+        **Framework**: Fastify
+        **Environment**: 
+        - KAFKA_BROKERS=kafka:9092
+        - NODE_ENV=production
+      end note
+    }
+    
+    node "Microservices Containers" {
+      
+      node "User Service Container" {
+        [User Service] as US
+        note right of US
+          **Port**: 3001 (internal) → 3001 (host)
+          **Database**: postgres:5432/userdb
+          **Environment**:
+          - DATABASE_URL=postgres://postgres:admin@postgres:5432/userdb
+          - KAFKA_BROKERS=kafka:9092
+        end note
+      }
+      
+      node "Event Service Container" {
+        [Event Service] as ES
+        note right of ES
+          **Port**: 3002 (internal) → 3002 (host)
+          **Database**: postgres:5432/eventdb
+          **Environment**:
+          - DATABASE_URL=postgres://postgres:admin@postgres:5432/eventdb
+          - KAFKA_BROKERS=kafka:9092
+        end note
+      }
+      
+      node "Registration Service Container" {
+        [Registration Service] as RS
+        note right of RS
+          **Port**: 3003 (internal) → 3003 (host)
+          **Database**: postgres:5432/registrationdb
+          **Environment**:
+          - DATABASE_URL=postgres://postgres:admin@postgres:5432/registrationdb
+          - KAFKA_BROKERS=kafka:9092
+        end note
+      }
+      
+      node "Notification Service Container" {
+        [Notification Service] as NS
+        note right of NS
+          **Port**: 3004 (internal) → 3004 (host)
+          **External**: SMTP (smtp.gmail.com:587)
+          **Environment**:
+          - SMTP_HOST=smtp.gmail.com
+          - SMTP_USER=phatk222@gmail.com
+          - DEFAULT_NOTIFICATION_EMAIL=truongkiet771@gmail.com
+        end note
+      }
+      
+      node "Auditlog Service Container" {
+        [Auditlog Service] as AS
+        note right of AS
+          **Port**: 3006 (internal) → 3006 (host)
+          **Database**: mongo:27017/auditdb
+          **Environment**:
+          - MONGO_URL=mongodb://mongo:27017/auditdb
+          - KAFKA_BROKERS=kafka:9092
+        end note
+      }
+    }
+    
+    node "Database Containers" {
+      
+      node "PostgreSQL Container" {
+        database "PostgreSQL" as PG
+        note right of PG
+          **Port**: 5432 (internal) → 5432 (host)
+          **Image**: postgres:15
+          **Databases**:
+          - userdb
+          - eventdb
+          - registrationdb
+          **Volume**: postgres-data
+          **Health Check**: pg_isready
+        end note
+      }
+      
+      node "MongoDB Container" {
+        database "MongoDB" as MG
+        note right of MG
+          **Port**: 27017 (internal) → 27017 (host)
+          **Image**: mongo:6
+          **Database**: auditdb
+          **Volume**: mongo-data
+          **Health Check**: mongosh ping
+        end note
+      }
+    }
+    
+    node "Message Broker Containers" {
+      
+      node "Zookeeper Container" {
+        [Zookeeper] as ZK
+        note right of ZK
+          **Port**: 2181 (internal)
+          **Image**: confluentinc/cp-zookeeper:7.3.0
+          **Environment**:
+          - ZOOKEEPER_CLIENT_PORT=2181
+          - ZOOKEEPER_TICK_TIME=2000
+        end note
+      }
+      
+      node "Kafka Container" {
+        [Kafka Broker] as KB
+        note right of KB
+          **Port**: 9092 (internal)
+          **Image**: confluentinc/cp-kafka:7.3.0
+          **Environment**:
+          - KAFKA_BROKER_ID=1
+          - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+          - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+          **Health Check**: kafka-topics --list
+        end note
+      }
+      
+      node "Kafka UI Container" {
+        [Kafka UI] as KUI
+        note right of KUI
+          **Port**: 8080 (internal) → 8080 (host)
+          **Image**: provectuslabs/kafka-ui:latest
+          **Environment**:
+          - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+        end note
+      }
+      
+      node "Kafka Init Container" {
+        [Kafka Init] as KI
+        note right of KI
+          **Image**: confluentinc/cp-kafka:7.3.0
+          **Purpose**: Create topics
+          **Volume**: ./shared/init-kafka-topics.sh
+          **Entrypoint**: bash /init-kafka.sh
+        end note
+      }
+    }
+  }
+}
+
+node "External Services" {
+  [SMTP Server] as SMTP
+  note right of SMTP
+    **Service**: smtp.gmail.com
+    **Port**: 587 (TLS)
+    **Protocol**: SMTP
+    **Authentication**: OAuth2
+  end note
+}
+
+node "Client Machines" {
+  [Web Browser] as WB
+  note right of WB
+    **Access Points**:
+    - Frontend: http://localhost:3000
+    - Gateway: http://localhost:3007
+    - Kafka UI: http://localhost:8080
+  end note
+}
+
+' Network connections
+WB --> FE : HTTP/3000
+WB --> GW : HTTP/3007
+WB --> KUI : HTTP/8080
+
+GW --> US : HTTP/3001
+GW --> ES : HTTP/3002
+GW --> RS : HTTP/3003
+GW --> AS : HTTP/3006
+
+US --> PG : PostgreSQL/5432
+ES --> PG : PostgreSQL/5432
+RS --> PG : PostgreSQL/5432
+AS --> MG : MongoDB/27017
+
+US --> KB : Kafka/9092
+ES --> KB : Kafka/9092
+RS --> KB : Kafka/9092
+NS --> KB : Kafka/9092
+AS --> KB : Kafka/9092
+
+KB --> ZK : Zookeeper/2181
+KUI --> KB : Kafka/9092
+KI --> KB : Kafka/9092
+
+NS --> SMTP : SMTP/587
+
+' Network
+cloud "Docker Network" {
+  note right
+    **Network**: eventflow-network
+    **Driver**: bridge
+    **Services**: All containers
+    **DNS**: Container name resolution
+  end note
+}
+
+' Volumes
+database "Docker Volumes" {
+  [postgres-data] as PGV
+  [mongo-data] as MGV
+  note right
+    **Persistent Storage**:
+    - postgres-data: PostgreSQL data
+    - mongo-data: MongoDB data
+    - Shared volumes: ./shared
+  end note
+}
+
+PG --> PGV : stores
+MG --> MGV : stores
+
+' Health checks and dependencies
+note bottom of "Docker Engine"
+  **Health Checks**:
+  - PostgreSQL: pg_isready
+  - MongoDB: mongosh ping
+  - Kafka: kafka-topics --list
+  
+  **Dependencies**:
+  - Services wait for databases
+  - Services wait for Kafka
+  - Kafka waits for Zookeeper
+  
+  **Restart Policy**: on-failure
+end note
+
+@enduml
+

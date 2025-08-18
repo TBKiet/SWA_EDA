@@ -1,0 +1,208 @@
+@startuml EDA-Demo Logical Interfaces & Contracts
+!theme plain
+title Logical Interfaces & Service Contracts
+
+package "Service Interfaces" {
+  
+  interface "UserServiceInterface" as USI {
+    + registerUser(username, email, password): User
+    + loginUser(email, password): AuthResponse
+    + getUserById(id): User
+    + updateUser(id, data): User
+  }
+  
+  interface "EventServiceInterface" as ESI {
+    + getEvents(): Event[]
+    + getEventById(id): Event
+    + createEvent(eventData): Event
+    + updateEvent(id, data): Event
+    + deleteEvent(id): boolean
+  }
+  
+  interface "RegistrationServiceInterface" as RSI {
+    + createRegistration(userId, eventId): Registration
+    + getRegistrationsByUser(userId): Registration[]
+    + getRegistrationsByEvent(eventId): Registration[]
+    + cancelRegistration(id): boolean
+  }
+  
+  interface "NotificationServiceInterface" as NSI {
+    + sendEmail(to, subject, body): boolean
+    + sendNotification(userId, message): boolean
+  }
+  
+  interface "AuditServiceInterface" as ASI {
+    + logEvent(eventType, data): AuditLog
+    + getAuditLogs(filters): AuditLog[]
+    + getAuditLogsByUser(userId): AuditLog[]
+  }
+  
+  interface "GatewayInterface" as GI {
+    + routeRequest(path, method, body): Response
+    + publishEvent(topic, data): boolean
+  }
+}
+
+package "Event Contracts" {
+  
+  interface "UserEvents" as UE {
+    + user.created: {userId, username, email, timestamp}
+    + user.logged_in: {userId, username, email, timestamp}
+    + user.updated: {userId, changes, timestamp}
+  }
+  
+  interface "EventEvents" as EE {
+    + event.created: {eventId, name, description, date}
+    + event.updated: {eventId, changes, timestamp}
+    + event.deleted: {eventId, timestamp}
+  }
+  
+  interface "RegistrationEvents" as RE {
+    + registration.created: {userId, eventId, timestamp}
+    + registration.cancelled: {registrationId, timestamp}
+  }
+  
+  interface "NotificationEvents" as NE {
+    + notification.sent: {userId, email, subject, timestamp}
+    + notification.failed: {userId, error, timestamp}
+  }
+  
+  interface "AuditEvents" as AE {
+    + audit.logged: {eventType, data, timestamp}
+    + audit.failed: {eventType, error, timestamp}
+  }
+}
+
+package "Data Contracts" {
+  
+  class "User" {
+    + id: Integer
+    + username: String
+    + email: String
+    + password: String (hashed)
+    + phone: String
+    + deviceToken: String
+    + createdAt: Date
+    + updatedAt: Date
+  }
+  
+  class "Event" {
+    + id: UUID
+    + name: String
+    + description: Text
+    + shortDescription: String
+    + date: Date
+    + location: String
+    + capacity: Integer
+    + registered: Integer
+    + image: String
+    + status: String
+    + createdAt: Date
+    + updatedAt: Date
+  }
+  
+  class "Registration" {
+    + id: Integer
+    + eventId: UUID
+    + userId: Integer
+    + userEmail: String
+    + userPhone: String
+    + userDeviceToken: String
+    + createdAt: Date
+    + updatedAt: Date
+  }
+  
+  class "AuditLog" {
+    + _id: ObjectId
+    + eventType: String
+    + data: Object
+    + createdAt: Date
+  }
+}
+
+package "Service Implementations" {
+  
+  [UserService] as US
+  [EventService] as ES
+  [RegistrationService] as RS
+  [NotificationService] as NS
+  [AuditlogService] as AS
+  [Gateway] as GW
+  
+  US ..|> USI : implements
+  ES ..|> ESI : implements
+  RS ..|> RSI : implements
+  NS ..|> NSI : implements
+  AS ..|> ASI : implements
+  GW ..|> GI : implements
+}
+
+package "Event Publishers" {
+  
+  [UserEventPublisher] as UEP
+  [EventEventPublisher] as EEP
+  [RegistrationEventPublisher] as REP
+  [NotificationEventPublisher] as NEP
+  [AuditEventPublisher] as AEP
+  
+  UEP ..|> UE : publishes
+  EEP ..|> EE : publishes
+  REP ..|> RE : publishes
+  NEP ..|> NE : publishes
+  AEP ..|> AE : publishes
+}
+
+package "Event Consumers" {
+  
+  [UserEventConsumer] as UEC
+  [EventEventConsumer] as EEC
+  [RegistrationEventConsumer] as REC
+  [NotificationEventConsumer] as NEC
+  [AuditEventConsumer] as AEC
+  
+  UEC ..|> UE : consumes
+  EEC ..|> EE : consumes
+  REC ..|> RE : consumes
+  NEC ..|> NE : consumes
+  AEC ..|> AE : consumes
+}
+
+' Relationships
+US --> UEP : uses
+ES --> EEP : uses
+RS --> REP : uses
+NS --> NEP : uses
+AS --> AEP : uses
+
+US --> User : manages
+ES --> Event : manages
+RS --> Registration : manages
+AS --> AuditLog : manages
+
+' Notes
+note right of "Service Interfaces"
+  **Service Contracts**
+  - RESTful APIs
+  - JSON request/response
+  - Error handling
+  - Authentication
+end note
+
+note right of "Event Contracts"
+  **Event Schemas**
+  - JSON serialization
+  - Versioning support
+  - Backward compatibility
+  - Schema validation
+end note
+
+note right of "Data Contracts"
+  **Data Models**
+  - Domain entities
+  - Validation rules
+  - Business constraints
+  - Type safety
+end note
+
+@enduml
+

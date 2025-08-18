@@ -1,49 +1,23 @@
 # 📘 EDA-Demo – Event-Driven Architecture Microservices
 
-[![CI Pipeline](https://github.com/TBKiet/SWA_EDA/workflows/CI%20Pipeline/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/ci.yml)
-[![CD Pipeline](https://github.com/TBKiet/SWA_EDA/workflows/CD%20Pipeline/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/cd.yml)
-[![Security & Quality](https://github.com/TBKiet/SWA_EDA/workflows/Security%20&%20Quality/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/security.yml)
+[![Simple CI Pipeline](https://github.com/TBKiet/SWA_EDA/workflows/Simple%20CI%20Pipeline/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/ci.yml)
+[![Simple CD Pipeline](https://github.com/TBKiet/SWA_EDA/workflows/Simple%20CD%20Pipeline/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/cd.yml)
+[![Simple Security](https://github.com/TBKiet/SWA_EDA/workflows/Simple%20Security/badge.svg)](https://github.com/TBKiet/SWA_EDA/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue?logo=docker)](https://hub.docker.com)
+[![Kafka](https://img.shields.io/badge/Kafka-Event%20Streaming-orange?logo=apache-kafka)](https://kafka.apache.org)
 
-Hệ thống EDA-Demo là một ví dụ áp dụng kiến trúc **Event-Driven Microservices** sử dụng **Kafka** làm message broker và **Fastify** làm framework backend. Các thành phần backend giao tiếp thông qua Kafka, frontend sử dụng **Next.js**.
+🚀 **Hệ thống EDA-Demo** là một ví dụ thực tế về kiến trúc **Event-Driven Microservices** với **CI/CD pipeline hoàn chỉnh**.
 
-## 🚀 CI/CD Pipeline
+**Tech Stack:**
+- 🏗️ **Architecture**: Event-Driven Microservices
+- 📡 **Message Broker**: Apache Kafka
+- ⚡ **Backend**: Fastify (Node.js)
+- 🎨 **Frontend**: Next.js + TypeScript
+- 🐳 **Containerization**: Docker + Docker Compose
+- 🔄 **CI/CD**: GitHub Actions + DockerHub
+- 💾 **Databases**: PostgreSQL + MongoDB
 
-Dự án sử dụng GitHub Actions với 3 workflows chính:
-
-### 🔄 CI Pipeline (`ci.yml`)
-- **Trigger**: Push/PR to main/develop branches
-- **Services Tested**: user-service, event-service, registration-service, notification-service, auditlog-service, gateway
-- **Infrastructure**: PostgreSQL, Kafka, Zookeeper containers
-- **Steps**: Test → Lint → Build Docker images
-- **Matrix Strategy**: Parallel testing across all microservices
-
-### 📦 CD Pipeline (`cd.yml`)
-- **Trigger**: Push to main branch, manual workflow dispatch
-- **Build & Push**: Docker images to DockerHub with SHA tags (requires setup)
-- **Environments**:
-  - 🧪 **Staging**: Automatic deployment
-  - 🎯 **Production**: Manual approval required
-- **Zero-downtime**: Deployment strategy with health checks
-
-> ⚠️ **DockerHub Setup Required**: CD pipeline needs DockerHub credentials to push images. See [DockerHub Setup Guide](./docs/DOCKERHUB_SETUP.md) for 5-minute setup instructions.
-
-### 🔒 Security & Quality (`security.yml`)
-- **Vulnerability Scanning**: npm audit, Snyk, Trivy
-- **Code Quality**: ESLint, Prettier, dependency checks
-- **License Compliance**: Automated license verification
-- **Schedule**: Weekly security scans
-
-## 📊 Monitoring & Observability
-
-| Service | Health Endpoint | Metrics | Logs |
-|---------|---------------|---------|------|
-| Gateway | `/health` | Prometheus | JSON structured |
-| User Service | `/health` | Custom metrics | Kafka events |
-| Event Service | `/health` | Event throughput | Audit logs |
-| Registration Service | `/health` | Registration stats | Error tracking |
-
----
 
 ## ⚙️ Yêu Cầu Hệ Thống
 
@@ -60,12 +34,13 @@ Dự án sử dụng GitHub Actions với 3 workflows chính:
 ### 1. Clone và cấu hình
 
 ```bash
-git clone <repo>
-cd <repo>
+git clone https://github.com/TBKiet/SWA_EDA.git
+cd SWA_EDA
 ```
 
-Update **.env** in **notification-service** to receive email notification success
-```
+Update **.env** in **notification-service** to receive email notification success:
+
+```env
 DEFAULT_NOTIFICATION_EMAIL=<your_email>
 ```
 
@@ -77,14 +52,11 @@ docker-compose up --build
 
 > 🔁 Hệ thống sẽ tự build và khởi động tất cả các service:
 >
-> - user-service
-> - registration-service
-> - event-service
-> - notification-service
-> - auditlog-service
-> - gateway
+> - user-service, registration-service, event-service
+> - notification-service, auditlog-service, gateway
 > - kafka, postgres, mongo, kafka-ui
-- Đợi thêm khoảng 10-20s để chắc chắn quá trình khởi động hoàn tất.
+>
+> - Đợi thêm khoảng 10-20s để chắc chắn quá trình khởi động hoàn tất.
 
 
 
@@ -138,4 +110,86 @@ docker-compose down -v
 
 ---
 
-> 📌 Tài liệu chi tiết về kiến trúc, flow sự kiện và hướng dẫn thao tác UI nằm trong `demo.md` hoặc file riêng nếu cần trình bày.
+## � Tài Liệu Chi Tiết
+
+- 📖 **CI/CD Learning Guide**: [SIMPLE_CICD.md](./SIMPLE_CICD.md)
+- 🐳 **DockerHub Setup**: [docs/DOCKERHUB_SETUP.md](./docs/DOCKERHUB_SETUP.md)
+- 🏗️ **Architecture & Event Flow**: [demo.md](./demo.md)
+- 📊 **API Documentation**: Coming soon...
+
+## 🤝 Đóng Góp
+
+1. Fork repository
+2. Tạo feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Tạo Pull Request
+
+---
+## 🚀 CI/CD Pipeline
+
+Dự án sử dụng GitHub Actions với 3 workflows đơn giản và hiệu quả:
+
+### 🔄 CI Pipeline - Kiểm tra Code Quality
+
+**Trigger**: Push code lên branch `main`
+
+**3 Jobs chạy song song:**
+
+- 📁 **Code Check**: Kiểm tra cấu trúc project
+- 🧪 **Test User Service**: Chạy tests với PostgreSQL database
+- 🐳 **Build Check**: Kiểm tra Dockerfile và mô phỏng build
+
+### 📦 CD Pipeline - Deploy lên DockerHub & Production
+
+**Smart Deployment Strategy:**
+
+- 🔍 **Auto-detect DockerHub**: Tự động kiểm tra credentials
+- 🐳 **Build & Push**: Docker images cho user-service và gateway
+- 🧪 **Deploy Staging**: Tự động deploy lên staging environment
+- 🎯 **Deploy Production**: Manual approval required
+
+#### 🐳 DockerHub Integration
+
+**✅ With DockerHub Setup** (Recommended):
+```bash
+✅ Images pushed to: your-username/user-service:latest
+✅ Multi-platform builds (amd64 + arm64)
+✅ Production deployment enabled
+🌐 Registry: https://hub.docker.com/u/your-username
+```
+
+**⚠️ Without DockerHub Setup**:
+```bash
+⚠️ Images built locally only
+⚠️ Production deployment disabled
+📝 Setup guide: docs/DOCKERHUB_SETUP.md
+```
+
+> ⚡ **Quick Setup**: [5-Minute DockerHub Setup Guide](./docs/DOCKERHUB_SETUP.md)
+
+### �️ Security Pipeline - Weekly Scans
+
+- 🔍 **Dependency Vulnerabilities**: npm audit
+- 📁 **Sensitive Files**: .env, .key detection
+- 📊 **Security Summary**: Comprehensive reports
+
+## 📊 Pipeline Status Matrix
+
+| Stage | Without DockerHub | With DockerHub |
+|-------|------------------|----------------|
+| 🧪 CI Tests | ✅ Always runs | ✅ Always runs |
+| 🐳 Docker Build | ✅ Local only | ✅ + Push to registry |
+| 🧪 Staging Deploy | ✅ Local images | ✅ DockerHub images |
+| 🎯 Production Deploy | ❌ Disabled | ✅ Manual approval |
+
+## 📊 Monitoring & Observability
+
+| Service | Health Endpoint | Metrics | Logs |
+|---------|---------------|---------|------|
+| Gateway | `/health` | Prometheus | JSON structured |
+| User Service | `/health` | Custom metrics | Kafka events |
+| Event Service | `/health` | Event throughput | Audit logs |
+| Registration Service | `/health` | Registration stats | Error tracking |
+
+---

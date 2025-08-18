@@ -1,0 +1,99 @@
+@startuml EDA-Demo Event Flow
+!theme plain
+title Event Flow and Consumer Groups
+
+start
+
+:Frontend Action;
+
+if (User Registration?) then (yes)
+  :POST /users;
+  :User Service creates user;
+  :Emit user.created;
+  
+  fork
+    :auditlog-service\n(consumer: audit-user-created);
+    :Log to MongoDB;
+    :Emit audit.logged;
+  fork again
+    :notification-service\n(consumer: notification-group);
+    :Log user creation;
+  end fork
+  
+elseif (User Login?) then (yes)
+  :POST /auth/login;
+  :User Service validates;
+  :Emit user.logged_in;
+  
+  fork
+    :auditlog-service\n(consumer: audit-user-logged);
+    :Log to MongoDB;
+    :Emit audit.logged;
+  end fork
+  
+elseif (Event Registration?) then (yes)
+  :POST /registrations;
+  :Gateway emits registration.created;
+  
+  fork
+    :event-service\n(consumer: event-group);
+    :Update event registered count;
+    :Emit event.updated;
+    
+    fork
+      :auditlog-service\n(consumer: audit-event-updated);
+      :Log to MongoDB;
+      :Emit audit.logged;
+    end fork
+    
+  fork again
+    :notification-service\n(consumer: notification-group);
+    :Get user email from User Service;
+    :Send email via SMTP;
+    :Emit notification.sent;
+    
+    fork
+      :auditlog-service\n(consumer: audit-email-sent);
+      :Log to MongoDB;
+      :Emit audit.logged;
+    end fork
+    
+  fork again
+    :auditlog-service\n(consumer: audit-registration-created);
+    :Log to MongoDB;
+    :Emit audit.logged;
+  end fork
+  
+else (other)
+  :Other actions;
+endif
+
+:auditlog-service\n(consumer: audit-audit-logged);
+:Log audit events to MongoDB;
+
+stop
+
+note right
+  **Consumer Groups:**
+  - audit-user-created
+  - audit-user-logged  
+  - audit-registration-created
+  - audit-event-updated
+  - audit-email-sent
+  - audit-audit-logged
+  - notification-group
+  - event-group
+end note
+
+note left
+  **Event Topics:**
+  - user.created
+  - user.logged_in
+  - registration.created
+  - event.updated
+  - notification.sent
+  - audit.logged
+  - audit.failed
+end note
+
+@enduml 

@@ -1,0 +1,111 @@
+@startuml EDA-Demo Logical View - Simplified
+!theme plain
+title Event-Driven Architecture Demo - Simplified Logical View
+
+' Core Components
+package "Frontend" {
+  class ApiClient {
+    +registerUser()
+    +login()
+    +getEvents()
+    +createRegistration()
+  }
+}
+
+package "API Gateway" {
+  class ApiController {
+    +getEvents()
+    +createUser()
+    +loginUser()
+    +createRegistration()
+  }
+}
+
+package "Microservices" {
+  class UserService {
+    +createUser()
+    +authenticateUser()
+  }
+  
+  class EventService {
+    +getEvents()
+    +createEvent()
+  }
+  
+  class RegistrationService {
+    +createRegistration()
+  }
+  
+  class EmailService {
+    +sendMail()
+  }
+  
+  class AuditService {
+    +logEvent()
+  }
+}
+
+package "Data Models" {
+  class User {
+    +id, username, email
+    +validatePassword()
+  }
+  
+  class Event {
+    +id, name, description
+    +date, location, capacity
+  }
+  
+  class Registration {
+    +id, userId, eventId
+    +userEmail, userPhone
+  }
+  
+  class AuditLog {
+    +eventType, data, createdAt
+  }
+}
+
+package "Message Broker" {
+  class Kafka {
+    +producer, consumer
+    +publish(), subscribe()
+  }
+}
+
+package "Databases" {
+  class PostgreSQL {
+    +users, events, registrations
+  }
+  
+  class MongoDB {
+    +audit_logs
+  }
+}
+
+' Main Flow
+ApiClient --> ApiController : HTTP
+ApiController --> UserService : routes
+ApiController --> EventService : routes
+ApiController --> RegistrationService : routes
+
+' Data Storage
+UserService --> User : manages
+EventService --> Event : manages
+RegistrationService --> Registration : manages
+AuditService --> AuditLog : manages
+
+User --> PostgreSQL : stores
+Event --> PostgreSQL : stores
+Registration --> PostgreSQL : stores
+AuditLog --> MongoDB : stores
+
+' Event Flow
+UserService --> Kafka : publishes events
+EventService --> Kafka : publishes events
+RegistrationService --> Kafka : publishes events
+
+Kafka --> EmailService : triggers emails
+Kafka --> AuditService : triggers logging
+
+@enduml

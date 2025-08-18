@@ -1,0 +1,311 @@
+@startuml EDA-Demo Deployment Topology
+!theme plain
+title Deployment Topology & Scaling Considerations
+
+package "Development Environment" {
+  node "Local Development" {
+    [Docker Compose] as DC
+    note right of DC
+      **Single Host**
+      - All services on one machine
+      - Shared network
+      - Volume mounts
+      - Port mapping
+    end note
+  }
+}
+
+package "Production Environment" {
+  
+  node "Load Balancer" {
+    [Nginx/HAProxy] as LB
+    note right of LB
+      **Load Balancer**
+      - SSL termination
+      - Health checks
+      - Rate limiting
+      - Request routing
+    end note
+  }
+  
+  node "Application Tier" {
+    
+    node "Frontend Cluster" {
+      [Next.js Frontend 1] as FE1
+      [Next.js Frontend 2] as FE2
+      [Next.js Frontend N] as FEN
+      note right of FEN
+        **Frontend Scaling**
+        - Static hosting (Vercel/Netlify)
+        - CDN distribution
+        - Build optimization
+      end note
+    }
+    
+    node "API Gateway Cluster" {
+      [Gateway 1] as GW1
+      [Gateway 2] as GW2
+      [Gateway N] as GWN
+      note right of GWN
+        **Gateway Scaling**
+        - Stateless design
+        - Horizontal scaling
+        - Circuit breaker
+        - Request aggregation
+      end note
+    }
+    
+    node "Microservices Tier" {
+      
+      node "User Service Cluster" {
+        [User Service 1] as US1
+        [User Service 2] as US2
+        [User Service N] as USN
+        note right of USN
+          **Service Scaling**
+          - Database per service
+          - Independent scaling
+          - Health monitoring
+        end note
+      }
+      
+      node "Event Service Cluster" {
+        [Event Service 1] as ES1
+        [Event Service 2] as ES2
+        [Event Service N] as ESN
+      }
+      
+      node "Registration Service Cluster" {
+        [Registration Service 1] as RS1
+        [Registration Service 2] as RS2
+        [Registration Service N] as RSN
+      }
+      
+      node "Notification Service Cluster" {
+        [Notification Service 1] as NS1
+        [Notification Service 2] as NS2
+        [Notification Service N] as NSN
+        note right of NSN
+          **Notification Scaling**
+          - Queue-based processing
+          - Retry mechanisms
+          - Rate limiting
+        end note
+      }
+      
+      node "Auditlog Service Cluster" {
+        [Auditlog Service 1] as AS1
+        [Auditlog Service 2] as AS2
+        [Auditlog Service N] as ASN
+        note right of ASN
+          **Audit Scaling**
+          - Event streaming
+          - Batch processing
+          - Data retention
+        end note
+      }
+    }
+  }
+  
+  node "Data Tier" {
+    
+    node "Database Cluster" {
+      [PostgreSQL Primary] as PGP
+      [PostgreSQL Replica 1] as PGR1
+      [PostgreSQL Replica 2] as PGR2
+      note right of PGR2
+        **Database Scaling**
+        - Read replicas
+        - Connection pooling
+        - Backup strategies
+        - Failover
+      end note
+    }
+    
+    node "Document Store" {
+      [MongoDB Primary] as MGP
+      [MongoDB Replica 1] as MGR1
+      [MongoDB Replica 2] as MGR2
+      note right of MGR2
+        **MongoDB Scaling**
+        - Replica sets
+        - Sharding (if needed)
+        - Index optimization
+      end note
+    }
+  }
+  
+  node "Message Broker Tier" {
+    
+    node "Kafka Cluster" {
+      [Kafka Broker 1] as KB1
+      [Kafka Broker 2] as KB2
+      [Kafka Broker 3] as KB3
+      note right of KB3
+        **Kafka Scaling**
+        - Multi-broker cluster
+        - Topic partitioning
+        - Consumer groups
+        - Replication factor
+      end note
+    }
+    
+    node "Zookeeper Ensemble" {
+      [Zookeeper 1] as ZK1
+      [Zookeeper 2] as ZK2
+      [Zookeeper 3] as ZK3
+      note right of ZK3
+        **Zookeeper Ensemble**
+        - Odd number of nodes
+        - Leader election
+        - Configuration management
+      end note
+    }
+  }
+  
+  node "Monitoring & Observability" {
+    [Prometheus] as PROM
+    [Grafana] as GRAF
+    [Jaeger] as JAEG
+    [ELK Stack] as ELK
+    note right of ELK
+      **Monitoring Stack**
+      - Metrics collection
+      - Log aggregation
+      - Distributed tracing
+      - Alerting
+    end note
+  }
+}
+
+node "External Services" {
+  [SMTP Service] as SMTP
+  [Email Service] as EMAIL
+  [CDN] as CDN
+  note right of CDN
+    **External Dependencies**
+    - Email providers
+    - Content delivery
+    - Third-party APIs
+  end note
+}
+
+' Connections
+LB --> FE1 : HTTP/HTTPS
+LB --> FE2 : HTTP/HTTPS
+LB --> FEN : HTTP/HTTPS
+
+LB --> GW1 : HTTP/HTTPS
+LB --> GW2 : HTTP/HTTPS
+LB --> GWN : HTTP/HTTPS
+
+GW1 --> US1 : HTTP
+GW1 --> ES1 : HTTP
+GW1 --> RS1 : HTTP
+GW1 --> NS1 : HTTP
+GW1 --> AS1 : HTTP
+
+GW2 --> US2 : HTTP
+GW2 --> ES2 : HTTP
+GW2 --> RS2 : HTTP
+GW2 --> NS2 : HTTP
+GW2 --> AS2 : HTTP
+
+GWN --> USN : HTTP
+GWN --> ESN : HTTP
+GWN --> RSN : HTTP
+GWN --> NSN : HTTP
+GWN --> ASN : HTTP
+
+' Database connections
+US1 --> PGP : PostgreSQL
+US2 --> PGP : PostgreSQL
+USN --> PGP : PostgreSQL
+
+ES1 --> PGP : PostgreSQL
+ES2 --> PGP : PostgreSQL
+ESN --> PGP : PostgreSQL
+
+RS1 --> PGP : PostgreSQL
+RS2 --> PGP : PostgreSQL
+RSN --> PGP : PostgreSQL
+
+AS1 --> MGP : MongoDB
+AS2 --> MGP : MongoDB
+ASN --> MGP : MongoDB
+
+' Kafka connections
+US1 --> KB1 : Kafka
+US2 --> KB2 : Kafka
+USN --> KB3 : Kafka
+
+ES1 --> KB1 : Kafka
+ES2 --> KB2 : Kafka
+ESN --> KB3 : Kafka
+
+RS1 --> KB1 : Kafka
+RS2 --> KB2 : Kafka
+RSN --> KB3 : Kafka
+
+NS1 --> KB1 : Kafka
+NS2 --> KB2 : Kafka
+NSN --> KB3 : Kafka
+
+AS1 --> KB1 : Kafka
+AS2 --> KB2 : Kafka
+ASN --> KB3 : Kafka
+
+' Kafka cluster
+KB1 --> ZK1 : Zookeeper
+KB2 --> ZK2 : Zookeeper
+KB3 --> ZK3 : Zookeeper
+
+' External
+NS1 --> SMTP : SMTP
+NS2 --> SMTP : SMTP
+NSN --> SMTP : SMTP
+
+FE1 --> CDN : Static assets
+FE2 --> CDN : Static assets
+FEN --> CDN : Static assets
+
+' Monitoring
+PROM --> US1 : Metrics
+PROM --> ES1 : Metrics
+PROM --> RS1 : Metrics
+PROM --> NS1 : Metrics
+PROM --> AS1 : Metrics
+
+GRAF --> PROM : Dashboard
+JAEG --> US1 : Tracing
+JAEG --> ES1 : Tracing
+JAEG --> RS1 : Tracing
+
+ELK --> US1 : Logs
+ELK --> ES1 : Logs
+ELK --> RS1 : Logs
+ELK --> NS1 : Logs
+ELK --> AS1 : Logs
+
+' Notes
+note top of "Production Environment"
+  **Production Considerations**:
+  - High availability
+  - Auto-scaling
+  - Disaster recovery
+  - Security (TLS, secrets)
+  - Performance monitoring
+  - Cost optimization
+end note
+
+note bottom of "Message Broker Tier"
+  **Kafka Production Setup**:
+  - Multi-broker cluster
+  - Topic replication
+  - Consumer group scaling
+  - Monitoring & alerting
+  - Backup & retention
+end note
+
+@enduml
+

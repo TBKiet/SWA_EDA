@@ -1,0 +1,119 @@
+@startuml EDA-Demo Logical View - Balanced Simplified
+!theme plain
+title Event-Driven Architecture Demo - Balanced Simplified View
+
+' Core Components
+package "Frontend" {
+  class FrontendApp {
+    +state: AppState
+    +apiClient: ApiClient
+    +render()
+    +handleUserAction()
+  }
+}
+
+package "API Gateway" {
+  class Gateway {
+    +routes: Route[]
+    +middleware: Middleware[]
+    +handleRequest()
+    +routeRequest()
+    +publishEvent()
+  }
+}
+
+package "Microservices" {
+  class UserService {
+    +userRepository: UserRepository
+    +eventBus: EventBus
+    +createUser()
+    +authenticateUser()
+    +updateUser()
+  }
+  
+  class EventService {
+    +eventRepository: EventRepository
+    +eventBus: EventBus
+    +createEvent()
+    +getEvents()
+    +updateEvent()
+  }
+  
+  class RegistrationService {
+    +registrationRepository: RegistrationRepository
+    +eventBus: EventBus
+    +createRegistration()
+    +cancelRegistration()
+    +getRegistrations()
+  }
+  
+  class NotificationService {
+    +emailService: EmailService
+    +eventBus: EventBus
+    +sendWelcomeEmail()
+    +sendEventConfirmation()
+    +handleNotificationEvent()
+  }
+  
+  class AuditService {
+    +auditRepository: AuditRepository
+    +eventBus: EventBus
+    +logEvent()
+    +getAuditTrail()
+  }
+}
+
+package "Data Stores" {
+  class PostgreSQL {
+    +users table
+    +events table
+    +registrations table
+  }
+  
+  class MongoDB {
+    +audit_logs collection
+  }
+}
+
+package "Message Broker" {
+  class Kafka {
+    +topics: string[]
+    +producers: KafkaProducer[]
+    +consumers: KafkaConsumer[]
+    +publish()
+    +subscribe()
+  }
+}
+
+package "External" {
+  class EmailProvider {
+    +smtpConfig: SmtpConfig
+    +sendEmail()
+    +validateEmail()
+  }
+}
+
+' Main Flow
+FrontendApp --> Gateway : HTTP requests
+Gateway --> UserService : routes user requests
+Gateway --> EventService : routes event requests
+Gateway --> RegistrationService : routes registration requests
+
+' Data Storage
+UserService --> PostgreSQL : stores user data
+EventService --> PostgreSQL : stores event data
+RegistrationService --> PostgreSQL : stores registrations
+AuditService --> MongoDB : stores audit logs
+
+' Event Flow
+UserService --> Kafka : publishes user events
+EventService --> Kafka : publishes event events
+RegistrationService --> Kafka : publishes registration events
+
+Kafka --> NotificationService : consumes events
+Kafka --> AuditService : consumes events
+
+' External Integration
+NotificationService --> EmailProvider : sends emails
+
+@enduml

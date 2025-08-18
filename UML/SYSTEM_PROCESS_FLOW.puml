@@ -1,0 +1,91 @@
+@startuml EDA-Demo System Process Flow
+!theme plain
+title Event-Driven Architecture Demo - System Process Flow
+
+actor "Frontend" as FE
+participant "Gateway" as GW
+participant "User Service" as US
+participant "Event Service" as ES
+participant "Registration Service" as RS
+participant "Notification Service" as NS
+participant "Auditlog Service" as AS
+participant "Kafka" as K
+database "PostgreSQL" as PG
+database "MongoDB" as MG
+participant "SMTP" as SMTP
+
+== User Registration Flow ==
+FE -> GW: POST /users {username, email, password}
+GW -> US: POST /users {username, email, password}
+US -> PG: INSERT INTO users
+US -> US: sendUserCreatedEvent()
+US -> K: user.created {userId, username, email, timestamp}
+K -> AS: user.created
+AS -> MG: INSERT INTO audit_logs
+AS -> K: audit.logged {eventType: "user.created", data}
+K -> AS: audit.logged (self-consumption)
+AS -> MG: INSERT INTO audit_logs (audit of audit)
+US -> GW: 201 {user}
+GW -> FE: 201 {user}
+
+== User Login Flow ==
+FE -> GW: POST /auth/login {email, password}
+GW -> US: POST /auth/login {email, password}
+US -> PG: SELECT * FROM users WHERE email = ?
+US -> US: sendUserLoggedInEvent()
+US -> K: user.logged_in {userId, username, email, timestamp}
+K -> AS: user.logged_in
+AS -> MG: INSERT INTO audit_logs
+AS -> K: audit.logged {eventType: "user.logged_in", data}
+K -> AS: audit.logged (self-consumption)
+AS -> MG: INSERT INTO audit_logs (audit of audit)
+US -> GW: 200 {user, token}
+GW -> FE: 200 {user, token}
+
+== Event Registration Flow ==
+FE -> GW: POST /registrations {userId, eventId}
+GW -> K: registration.created {userId, eventId}
+K -> ES: registration.created
+ES -> PG: UPDATE events SET registered = registered + 1 WHERE id = ?
+ES -> ES: sendEventUpdated()
+ES -> K: event.updated {eventId, registered, updatedBy}
+K -> AS: event.updated
+AS -> MG: INSERT INTO audit_logs
+AS -> K: audit.logged {eventType: "event.updated", data}
+K -> AS: audit.logged (self-consumption)
+AS -> MG: INSERT INTO audit_logs (audit of audit)
+
+K -> NS: registration.created
+NS -> US: GET /users/{userId} (to get email)
+US -> PG: SELECT * FROM users WHERE id = ?
+US -> NS: 200 {user with email}
+NS -> SMTP: sendMail(to: userEmail, subject: "Event Registration Confirmation")
+SMTP -> NS: 200 OK
+NS -> NS: sendEmailSentEvent()
+NS -> K: notification.sent {userId, email, subject}
+K -> AS: notification.sent
+AS -> MG: INSERT INTO audit_logs
+AS -> K: audit.logged {eventType: "notification.sent", data}
+K -> AS: audit.logged (self-consumption)
+AS -> MG: INSERT INTO audit_logs (audit of audit)
+
+K -> AS: registration.created
+AS -> MG: INSERT INTO audit_logs
+AS -> K: audit.logged {eventType: "registration.created", data}
+K -> AS: audit.logged (self-consumption)
+AS -> MG: INSERT INTO audit_logs (audit of audit)
+
+GW -> FE: 201 {message: "Registration request sent"}
+
+== Error Handling Flow ==
+note over US, K: If user creation fails
+US -> K: audit.failed {eventType: "user.created", error}
+K -> AS: audit.failed
+AS -> MG: INSERT INTO audit_logs
+
+note over NS, SMTP: If email sending fails
+NS -> K: notification.failed {userId, error}
+K -> AS: notification.failed
+AS -> MG: INSERT INTO audit_logs
+
+@enduml 

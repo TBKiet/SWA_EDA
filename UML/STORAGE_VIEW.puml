@@ -1,0 +1,155 @@
+@startuml EDA-Demo Storage View
+!theme plain
+title Event-Driven Architecture Demo - Storage View
+
+package "PostgreSQL Databases" {
+  
+  database "User Database (userdb)" {
+    entity "users" {
+      * id : INTEGER (PK, AUTO_INCREMENT)
+      --
+      * username : VARCHAR(255) NOT NULL
+      * email : VARCHAR(255) NOT NULL UNIQUE
+      * password : VARCHAR(255) NOT NULL (HASHED)
+      phone : VARCHAR(255)
+      deviceToken : VARCHAR(255)
+      createdAt : TIMESTAMP
+      updatedAt : TIMESTAMP
+    }
+  }
+  
+  database "Event Database (eventdb)" {
+    entity "events" {
+      * id : UUID (PK, DEFAULT gen_random_uuid())
+      --
+      * name : VARCHAR(255) NOT NULL
+      * description : TEXT NOT NULL
+      short_description : VARCHAR(255)
+      * date : DATE NOT NULL
+      * location : VARCHAR(255) NOT NULL
+      * capacity : INTEGER NOT NULL
+      registered : INTEGER DEFAULT 0
+      image : VARCHAR(255)
+      status : VARCHAR(20) DEFAULT 'upcoming'
+      createdAt : TIMESTAMP
+      updatedAt : TIMESTAMP
+    }
+  }
+  
+  database "Registration Database (registrationdb)" {
+    entity "registrations" {
+      * id : INTEGER (PK, AUTO_INCREMENT)
+      --
+      * eventId : UUID NOT NULL
+      * userId : INTEGER NOT NULL
+      * userEmail : VARCHAR(255) NOT NULL
+      userPhone : VARCHAR(255)
+      userDeviceToken : VARCHAR(255)
+      createdAt : TIMESTAMP
+      updatedAt : TIMESTAMP
+    }
+  }
+}
+
+package "MongoDB Database" {
+  database "Audit Database (auditdb)" {
+    entity "auditlogs" {
+      * _id : ObjectId (PK)
+      --
+      * eventType : String (REQUIRED)
+      * data : Object (REQUIRED)
+      createdAt : Date (DEFAULT: Date.now)
+    }
+  }
+}
+
+package "Kafka Topics (Event Store)" {
+  entity "user.created" {
+    * userId : Integer
+    * username : String
+    * email : String
+    phone : String
+    deviceToken : String
+    timestamp : String (ISO)
+  }
+  
+  entity "user.logged_in" {
+    * userId : Integer
+    * username : String
+    * email : String
+    timestamp : String (ISO)
+  }
+  
+  entity "registration.created" {
+    * userId : Integer
+    * eventId : String (UUID)
+  }
+  
+  entity "event.updated" {
+    * eventId : String (UUID)
+    updatedFields : Object
+    updatedBy : String
+  }
+  
+  entity "notification.sent" {
+    * userId : Integer
+    * email : String
+    * subject : String
+  }
+  
+  entity "audit.logged" {
+    * eventType : String
+    * data : Object
+    timestamp : String (ISO)
+  }
+  
+  entity "audit.failed" {
+    * eventType : String
+    * error : String
+    timestamp : String (ISO)
+  }
+}
+
+' Relationships
+users ||--o{ registrations : "user registers for events"
+events ||--o{ registrations : "event has registrations"
+
+' Notes
+note right of users
+  **User Service**
+  - Password hashed with bcrypt
+  - Email unique constraint
+  - Timestamps auto-managed
+end note
+
+note right of events
+  **Event Service**
+  - UUID primary key
+  - Capacity vs Registered tracking
+  - Status: upcoming/ended
+  - Sample data: 10 events
+end note
+
+note right of registrations
+  **Registration Service**
+  - Links user to event
+  - Stores user contact info
+  - No foreign key constraints
+end note
+
+note right of auditlogs
+  **Auditlog Service**
+  - Flexible schema (Object)
+  - All events logged
+  - Self-audit pattern
+end note
+
+note right of "user.created"
+  **Kafka Topics**
+  - Event-driven communication
+  - JSON serialization
+  - At-least-once delivery
+  - Partition strategy
+end note
+
+@enduml

@@ -1,0 +1,95 @@
+@startuml EDA-Demo System Architecture
+!theme plain
+title Event-Driven Architecture Demo - System Architecture
+
+package "Frontend Layer" {
+  [Next.js Frontend] as FE
+}
+
+package "API Gateway Layer" {
+  [Fastify Gateway] as GW
+}
+
+package "Microservices Layer" {
+  package "User Management" {
+    [User Service] as US
+    database "User DB\n(PostgreSQL)" as UDB
+  }
+  
+  package "Event Management" {
+    [Event Service] as ES
+    database "Event DB\n(PostgreSQL)" as EDB
+  }
+  
+  package "Registration Management" {
+    [Registration Service] as RS
+    database "Registration DB\n(PostgreSQL)" as RDB
+  }
+  
+  package "Notification Management" {
+    [Notification Service] as NS
+  }
+  
+  package "Audit Management" {
+    [Auditlog Service] as AS
+    database "Audit DB\n(MongoDB)" as ADB
+  }
+}
+
+package "Message Broker" {
+  [Kafka] as K
+  [Zookeeper] as ZK
+}
+
+package "External Services" {
+  [SMTP Server] as SMTP
+}
+
+package "Monitoring" {
+  [Kafka UI] as KUI
+}
+
+' Frontend connections
+FE --> GW : HTTP/JSON
+
+' Gateway connections
+GW --> US : HTTP/JSON
+GW --> ES : HTTP/JSON
+GW --> RS : HTTP/JSON
+GW --> K : registration.created
+
+' Service to Database connections
+US --> UDB : SQL
+ES --> EDB : SQL
+RS --> RDB : SQL
+AS --> ADB : MongoDB
+
+' Service to Kafka connections
+US --> K : user.created, user.logged_in
+ES --> K : event.updated
+NS --> K : notification.sent, notification.failed
+AS --> K : audit.logged, audit.failed
+
+' Kafka to Service connections
+K --> ES : registration.created
+K --> NS : registration.created
+K --> AS : user.created, user.logged_in, registration.created, notification.sent, event.updated
+
+' External service connections
+NS --> SMTP : SMTP
+NS --> US : HTTP (get user email)
+
+' Monitoring connections
+KUI --> K : WebSocket/HTTP
+
+' Kafka internal
+K --> ZK : Coordination
+
+' Notes
+note right of K : Topics:\n- user.created\n- user.logged_in\n- registration.created\n- notification.sent\n- event.updated\n- audit.logged\n- audit.failed
+
+note right of AS : Consumes all events\nand logs to MongoDB
+
+note right of NS : Event Notification Pattern:\nGets user email from User Service\nbefore sending email
+
+@enduml 

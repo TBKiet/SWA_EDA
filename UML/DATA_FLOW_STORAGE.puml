@@ -1,0 +1,162 @@
+@startuml EDA-Demo Data Flow & Storage Patterns
+!theme plain
+title Data Flow & Storage Patterns
+
+package "Data Flow Patterns" {
+  
+  == Event Notification Pattern ==
+  
+  participant "Frontend" as FE
+  participant "Gateway" as GW
+  participant "User Service" as US
+  participant "Notification Service" as NS
+  participant "Kafka" as K
+  database "User DB" as UDB
+  participant "SMTP" as SMTP
+  
+  FE -> GW: POST /registrations {userId, eventId}
+  GW -> K: registration.created {userId, eventId}
+  K -> NS: registration.created
+  NS -> US: GET /users/{userId}
+  US -> UDB: SELECT * FROM users WHERE id = ?
+  UDB -> US: {email, username, ...}
+  US -> NS: {user data}
+  NS -> SMTP: sendMail(to: user.email)
+  NS -> K: notification.sent {userId, email, subject}
+  
+  == CQRS-like Pattern ==
+  
+  participant "Event Service" as ES
+  database "Event DB" as EDB
+  
+  K -> ES: registration.created
+  ES -> EDB: UPDATE events SET registered = registered + 1
+  ES -> K: event.updated {eventId, registered}
+  
+  == Audit Pattern ==
+  
+  participant "Auditlog Service" as AS
+  database "Audit DB" as ADB
+  
+  K -> AS: user.created
+  AS -> ADB: INSERT INTO auditlogs {eventType, data}
+  AS -> K: audit.logged {eventType: "user.created", data}
+  K -> AS: audit.logged (self-consumption)
+  AS -> ADB: INSERT INTO auditlogs {eventType: "audit.logged", data}
+  
+}
+
+package "Storage Strategies" {
+  
+  == PostgreSQL (Relational) ==
+  
+  database "User Database" {
+    [users] as U
+    note right of U
+      **User Service**
+      - ACID transactions
+      - Foreign key constraints
+      - Password hashing
+      - Email uniqueness
+    end note
+  }
+  
+  database "Event Database" {
+    [events] as E
+    note right of E
+      **Event Service**
+      - UUID primary keys
+      - Capacity tracking
+      - Status management
+      - Sample data seeding
+    end note
+  }
+  
+  database "Registration Database" {
+    [registrations] as R
+    note right of R
+      **Registration Service**
+      - No foreign keys (loose coupling)
+      - Denormalized user data
+      - Event linking
+    end note
+  }
+  
+  == MongoDB (Document) ==
+  
+  database "Audit Database" {
+    [auditlogs] as A
+    note right of A
+      **Auditlog Service**
+      - Flexible schema
+      - JSON documents
+      - Event sourcing ready
+      - Self-audit capability
+    end note
+  }
+  
+  == Kafka (Event Store) ==
+  
+  database "Kafka Topics" {
+    [user.created] as UC
+    [user.logged_in] as UL
+    [registration.created] as RC
+    [event.updated] as EU
+    [notification.sent] as NS
+    [audit.logged] as AL
+    [audit.failed] as AF
+    
+    note right of UC
+      **Event Store**
+      - Immutable events
+      - Time-ordered
+      - Partitioned
+      - Replicated
+    end note
+  }
+  
+}
+
+package "Data Consistency Patterns" {
+  
+  == Eventual Consistency ==
+  
+  participant "Service A" as SA
+  participant "Service B" as SB
+  participant "Kafka" as K
+  database "DB A" as DBA
+  database "DB B" as DBB
+  
+  SA -> DBA: Write data
+  SA -> K: Emit event
+  K -> SB: Consume event
+  SB -> DBB: Update data
+  
+  note right of K
+    **Eventual Consistency**
+    - Services eventually sync
+    - No immediate consistency
+    - Compensating actions
+  end note
+  
+  == Saga Pattern (Simplified) ==
+  
+  participant "Registration" as REG
+  participant "Event Update" as EU
+  participant "Notification" as NOT
+  participant "Audit" as AUD
+  
+  REG -> EU: registration.created
+  EU -> NOT: event.updated
+  NOT -> AUD: notification.sent
+  
+  note right of REG
+    **Saga Pattern**
+    - Distributed transaction
+    - Compensating actions
+    - Event-driven coordination
+  end note
+  
+}
+
+@enduml
